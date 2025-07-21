@@ -1,0 +1,119 @@
+erDiagram
+    user {
+        int user_id PK
+        varchar name
+        varchar password
+        datetime created_time
+        datetime updated_time
+    }
+
+    point {
+        int point_id PK
+        int user_id FK
+        int current_point
+        datetime created_time
+        datetime updated_time
+    }
+
+    point_history {
+        int history_id PK
+        int user_id FK
+        int point_id FK
+        int point_amount
+        varchar type
+        datetime created_time
+        datetime updated_time
+    }
+
+    product {
+        int product_id PK
+        varchar name
+        int price
+        int stock
+        datetime created_time
+        datetime updated_time
+    }
+
+    orders {
+        int order_id PK
+        int user_id FK
+        int total_amount
+        int discount_amount
+        int amount
+        varchar status
+        datetime created_time
+        datetime updated_time
+    }
+
+    order_item {
+        int order_item_id PK
+        int order_id FK
+        int product_id FK
+        int quantity
+        int unit_price
+        datetime created_time
+        datetime updated_time
+    }
+
+    order_status_history {
+        int status_history_id PK
+        int order_id FK
+        varchar status
+        datetime created_time
+        datetime updated_time
+    }
+
+    payment {
+        int payment_id PK
+        int order_id FK
+        int coupon_id FK
+        int total_amount
+        int discount_amount
+        int amount
+        datetime created_time
+        datetime updated_time
+    }
+
+    coupon_policy {
+        int policy_id PK
+        varchar name
+        int discount_rate
+        int valid_days
+        int issued_count
+        int max_count
+        datetime start_date
+        datetime end_date
+        datetime created_time
+        datetime updated_time
+    }
+
+    coupon {
+        int coupon_id PK
+        int user_id FK
+        int policy_id FK
+        varchar status
+        datetime created_time
+        datetime updated_time
+        datetime used_time
+    }
+
+    %% User relationships
+    user ||--o{ point : "has"
+    user ||--o{ point_history : "has"
+    user ||--o{ orders : "places"
+    user ||--o{ coupon : "owns"
+
+    %% Point relationships
+    point ||--o{ point_history : "tracks"
+
+    %% Order relationships
+    orders ||--o{ order_item : "contains"
+    orders ||--o{ order_status_history : "tracks"
+    orders ||--|| payment : "has"
+
+    %% Product relationships
+    product ||--o{ order_item : "included_in"
+
+    %% Coupon relationships
+    coupon_policy ||--o{ coupon : "defines"
+    coupon ||--o| payment : "used_in"
