@@ -1,12 +1,19 @@
-package kr.hhplus.be.server.controller;
+package kr.hhplus.be.server.interfaces.commerce;
 
 import io.swagger.v3.oas.annotations.Operation;
+import kr.hhplus.be.server.interfaces.commerce.dto.CommerceRequest;
+import kr.hhplus.be.server.interfaces.commerce.dto.CommerceResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * 커머스 컨트롤러
+ * Interfaces Layer: 외부 요청의 진입점
+ * Swagger 문서화가 포함된 API 엔드포인트
+ */
 @RestController
 public class CommerceController implements CommerceApiSpec {
     
@@ -41,4 +48,4 @@ public class CommerceController implements CommerceApiSpec {
         );
         return ResponseEntity.ok(response);
     }
-}
+} 

@@ -1,12 +1,20 @@
-package kr.hhplus.be.server.controller;
+package kr.hhplus.be.server.interfaces.commerce.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
 import java.math.BigDecimal;
 
+/**
+ * 커머스 응답 DTO
+ * 외부로 노출할 데이터 형식을 정의
+ * Swagger 문서화를 위한 스키마 정보 포함
+ */
 public class CommerceResponse {
     
+    /**
+     * 상품 목록 응답
+     */
     public record ProductList(
             @Schema(description = "상품 ID", requiredMode = RequiredMode.REQUIRED, example = "1")
             Long id,
@@ -17,6 +25,9 @@ public class CommerceResponse {
     ) {
     }
     
+    /**
+     * 주문 생성 응답
+     */
     public record OrderCreated(
             @Schema(description = "주문 ID", requiredMode = RequiredMode.REQUIRED, example = "1")
             Long orderId,
@@ -25,6 +36,9 @@ public class CommerceResponse {
     ) {
     }
     
+    /**
+     * 결제 결과 응답
+     */
     public record PaymentResult(
             @Schema(description = "결제 상태", requiredMode = RequiredMode.REQUIRED, example = "PAYMENT_SUCCESS")
             String status,
@@ -32,7 +46,6 @@ public class CommerceResponse {
             Long orderId,
             @Schema(description = "유저 ID", requiredMode = RequiredMode.REQUIRED, example = "1")
             Long userId
-    )
-    {
+    ) {
     }
-}
+} 
