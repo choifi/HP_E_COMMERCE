@@ -1,6 +1,6 @@
 package kr.hhplus.be.server.interfaces.order;
 
-import kr.hhplus.be.server.application.order.OrderApplicationService;
+import kr.hhplus.be.server.application.order.OrderFacade;
 import kr.hhplus.be.server.domain.order.Order;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,17 +11,17 @@ import java.util.List;
 @RequestMapping("/api/orders")
 public class OrderController {
 
-    private final OrderApplicationService orderApplicationService;
+    private final OrderFacade orderApplicationService;
 
-    public OrderController(OrderApplicationService orderApplicationService) {
+    public OrderController(OrderFacade orderApplicationService) {
         this.orderApplicationService = orderApplicationService;
     }
 
     // 주문 생성 및 결제
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(@RequestBody CreateOrderRequest request) {
-        List<OrderApplicationService.OrderItemRequest> orderItems = request.getOrderItems().stream()
-            .map(item -> new OrderApplicationService.OrderItemRequest(item.getProductId(), item.getQuantity()))
+        List<OrderFacade.CreateOrderItemRequest> orderItems = request.getOrderItems().stream()
+            .map(item -> new OrderFacade.CreateOrderItemRequest(item.getProductId(), item.getQuantity()))
             .toList();
 
         Order order = orderApplicationService.createOrderWithPayment(

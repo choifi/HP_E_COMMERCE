@@ -2,7 +2,6 @@ package kr.hhplus.be.server.application.order;
 
 import kr.hhplus.be.server.domain.order.Order;
 import kr.hhplus.be.server.domain.order.OrderItem;
-import kr.hhplus.be.server.domain.order.OrderRepository;
 import kr.hhplus.be.server.domain.product.Product;
 import kr.hhplus.be.server.application.product.ProductService;
 import kr.hhplus.be.server.application.payment.PaymentService;
@@ -14,25 +13,26 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
-public class OrderApplicationService {
-    
-    private final OrderRepository orderRepository;
+public class OrderFacade {
+
+    private final OrderService orderService;
     private final ProductService productService;
     private final PaymentService paymentService;
 
-    public OrderApplicationService(OrderRepository orderRepository,
-                                 ProductService productService,
-                                 PaymentService paymentService) {
-        this.orderRepository = orderRepository;
+    public OrderFacade(OrderService orderService,
+                       ProductService productService,
+                       PaymentService paymentService) {
+        this.orderService = orderService;
         this.productService = productService;
         this.paymentService = paymentService;
     }
 
     @Transactional
     public Order createOrderWithPayment(int userId, 
-                                      List<OrderItemRequest> orderItems, 
+                                      List<CreateOrderItemRequest> orderItems, 
                                       Integer couponId) {
-        List<OrderItem> items = validateAndCreateOrderItems(orderItems);
+        validateOrderItems(orderItems);
+        List<OrderItem> items = createOrderItems(orderItems);
         
         Order order = new Order(userId, items);
         
@@ -45,39 +45,32 @@ public class OrderApplicationService {
         
         paymentService.deductUserPoints(userId, order.getAmount());
         
-        Order savedOrder = orderRepository.save(order);
+        Order savedOrder = orderService.save(order);
         
         paymentService.processPayment(savedOrder, couponId);
         
         savedOrder.complete();
-        return orderRepository.save(savedOrder);
+        return orderService.save(savedOrder);
     }
 
     public Order getOrderById(int orderId) {
-    
-        return orderRepository.findById(orderId)
-            .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다. ID: " + orderId));
+        return orderService.findById(orderId);
     }
 
     public List<Order> getOrdersByUserId(int userId) {
-    
-        return orderRepository.findByUserId(userId);
+        return orderService.findByUserId(userId);
     }
 
     @Transactional
     public Order cancelOrder(int orderId) {
-        Order order = getOrderById(orderId);
-        order.cancel();
-        return orderRepository.save(order);
+        return orderService.cancelOrder(orderId);
     }
 
-    private List<OrderItem> validateAndCreateOrderItems(List<OrderItemRequest> orderItemRequests) {
-        return orderItemRequests.stream()
-            .map(this::validateAndCreateOrderItem)
-            .collect(Collectors.toList());
+    private void validateOrderItems(List<CreateOrderItemRequest> orderItemRequests) {
+        orderItemRequests.forEach(this::validateOrderItem);
     }
 
-    private OrderItem validateAndCreateOrderItem(OrderItemRequest request) {
+    private void validateOrderItem(CreateOrderItemRequest request) {
         Product product = productService.getProductById(request.getProductId());
         
         if (!product.hasStock(request.getQuantity())) {
@@ -87,23 +80,32 @@ public class OrderApplicationService {
                 ", 현재 재고: " + product.getStock()
             );
         }
-        
-        return new OrderItem(product.getProductId(), request.getQuantity(), product.getPrice());
     }
 
-    private void decreaseProductStock(List<OrderItemRequest> orderItems) {
-        for (OrderItemRequest item : orderItems) {
+    private List<OrderItem> createOrderItems(List<CreateOrderItemRequest> orderItemRequests) {
+        return orderItemRequests.stream()
+            .map(this::createOrderItem)
+            .collect(Collectors.toList());
+    }
+
+    private OrderItem createOrderItem(CreateOrderItemRequest request) {
+        Product product = productService.getProductById(request.getProductId());
+        return new OrderItem(request.getProductId(), request.getQuantity(), product.getPrice());
+    }
+
+    private void decreaseProductStock(List<CreateOrderItemRequest> orderItems) {
+        for (CreateOrderItemRequest item : orderItems) {
             Product product = productService.getProductById(item.getProductId());
             product.reduceStock(item.getQuantity());
             productService.updateProduct(product);
         }
     }
 
-    public static class OrderItemRequest {
+    public static class CreateOrderItemRequest {
         private int productId;
         private int quantity;
 
-        public OrderItemRequest(int productId, int quantity) {
+        public CreateOrderItemRequest(int productId, int quantity) {
             this.productId = productId;
             this.quantity = quantity;
         }

@@ -1,9 +1,8 @@
 package kr.hhplus.be.server.interfaces.order;
 
-import kr.hhplus.be.server.application.order.OrderApplicationService;
+import kr.hhplus.be.server.application.order.OrderFacade;
 import kr.hhplus.be.server.domain.order.Order;
 import kr.hhplus.be.server.domain.order.OrderItem;
-import kr.hhplus.be.server.domain.order.OrderStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,7 +23,7 @@ import static org.mockito.Mockito.when;
 class OrderControllerTest {
 
     @Mock
-    private OrderApplicationService orderApplicationService;
+    private OrderFacade orderApplicationService;
 
     private OrderController orderController;
 

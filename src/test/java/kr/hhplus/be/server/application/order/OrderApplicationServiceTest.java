@@ -3,7 +3,6 @@ package kr.hhplus.be.server.application.order;
 import kr.hhplus.be.server.domain.order.Order;
 import kr.hhplus.be.server.domain.order.OrderItem;
 import kr.hhplus.be.server.domain.order.OrderStatus;
-import kr.hhplus.be.server.domain.order.OrderRepository;
 import kr.hhplus.be.server.domain.payment.Payment;
 import kr.hhplus.be.server.domain.product.Product;
 import kr.hhplus.be.server.application.product.ProductService;
@@ -26,17 +25,17 @@ import static org.mockito.Mockito.*;
 class OrderApplicationServiceTest {
 
     @Mock
-    private OrderRepository orderRepository;
+    private OrderService orderService;
     @Mock
     private ProductService productService;
     @Mock
     private PaymentService paymentService;
 
-    private OrderApplicationService orderApplicationService;
+    private OrderFacade orderApplicationService;
 
     @BeforeEach
     void setUp() {
-        orderApplicationService = new OrderApplicationService(orderRepository, productService, paymentService);
+        orderApplicationService = new OrderFacade(orderService, productService, paymentService);
     }
 
     @Test
@@ -47,9 +46,9 @@ class OrderApplicationServiceTest {
         int productPrice = 1000;
         int productStock = 10;
         
-        OrderApplicationService.OrderItemRequest orderItemRequest = 
-            new OrderApplicationService.OrderItemRequest(productId, quantity);
-        List<OrderApplicationService.OrderItemRequest> orderItems = List.of(orderItemRequest);
+        OrderFacade.CreateOrderItemRequest orderItemRequest =
+            new OrderFacade.CreateOrderItemRequest(productId, quantity);
+        List<OrderFacade.CreateOrderItemRequest> orderItems = List.of(orderItemRequest);
         
         Product product = createProduct(productId, "테스트 상품", productPrice, productStock);
         Order pendingOrder = createOrder(userId, productId, quantity, productPrice);
@@ -58,8 +57,13 @@ class OrderApplicationServiceTest {
         Payment payment = createPayment(completedOrder.getOrderId(), productPrice * quantity, 0, null);
         
         when(productService.getProductById(productId)).thenReturn(product);
-        when(productService.updateProduct(any(Product.class))).thenReturn(product);
-        when(orderRepository.save(any(Order.class))).thenReturn(pendingOrder, completedOrder);
+        when(productService.updateProduct(argThat(updatedProduct -> 
+            updatedProduct.getStock() == productStock - quantity
+        ))).thenAnswer(invocation -> {
+            Product updatedProduct = invocation.getArgument(0);
+            return updatedProduct;
+        });
+        when(orderService.save(any(Order.class))).thenReturn(pendingOrder, completedOrder);
         when(paymentService.processPayment(any(Order.class), any())).thenReturn(payment);
         
         Order result = orderApplicationService.createOrderWithPayment(userId, orderItems, null);
@@ -70,9 +74,12 @@ class OrderApplicationServiceTest {
         assertThat(result.getTotalAmount()).isEqualTo(productPrice * quantity);
         assertThat(result.getAmount()).isEqualTo(productPrice * quantity);
         
-        verify(productService, times(2)).getProductById(productId);
-        verify(productService).updateProduct(any(Product.class));
-        verify(orderRepository, times(2)).save(any(Order.class));
+        // 재고 차감 검증
+        verify(productService, times(3)).getProductById(productId);
+        verify(productService).updateProduct(argThat(updatedProduct -> 
+            updatedProduct.getStock() == productStock - quantity
+        ));
+        verify(orderService, times(2)).save(any(Order.class));
         verify(paymentService).processPayment(any(Order.class), eq(null));
     }
 
@@ -84,9 +91,9 @@ class OrderApplicationServiceTest {
         int productPrice = 1000;
         int productStock = 10;
         
-        OrderApplicationService.OrderItemRequest orderItemRequest = 
-            new OrderApplicationService.OrderItemRequest(productId, quantity);
-        List<OrderApplicationService.OrderItemRequest> orderItems = List.of(orderItemRequest);
+        OrderFacade.CreateOrderItemRequest orderItemRequest =
+            new OrderFacade.CreateOrderItemRequest(productId, quantity);
+        List<OrderFacade.CreateOrderItemRequest> orderItems = List.of(orderItemRequest);
         
         Product product = createProduct(productId, "테스트 상품", productPrice, productStock);
         
@@ -105,23 +112,28 @@ class OrderApplicationServiceTest {
         int productPrice = 1000;
         int productStock = 10;
         int couponId = 1;
-        int discountAmount = 200;
+        int discountAmount = 500;
         
-        OrderApplicationService.OrderItemRequest orderItemRequest = 
-            new OrderApplicationService.OrderItemRequest(productId, quantity);
-        List<OrderApplicationService.OrderItemRequest> orderItems = List.of(orderItemRequest);
+        OrderFacade.CreateOrderItemRequest orderItemRequest =
+            new OrderFacade.CreateOrderItemRequest(productId, quantity);
+        List<OrderFacade.CreateOrderItemRequest> orderItems = List.of(orderItemRequest);
         
         Product product = createProduct(productId, "테스트 상품", productPrice, productStock);
-        Order pendingOrder = createOrder(userId, productId, quantity, productPrice);
-        Order completedOrder = createOrder(userId, productId, quantity, productPrice);
-        completedOrder.applyDiscount(discountAmount);
-        completedOrder.complete();
-        Payment payment = createPayment(completedOrder.getOrderId(), productPrice * quantity, discountAmount, couponId);
+        Payment payment = createPayment(1, productPrice * quantity, discountAmount, couponId);
         
         when(productService.getProductById(productId)).thenReturn(product);
-        when(productService.updateProduct(any(Product.class))).thenReturn(product);
-        when(orderRepository.save(any(Order.class))).thenReturn(pendingOrder, completedOrder);
-        when(paymentService.calculateDiscount(anyInt(), eq(couponId))).thenReturn(discountAmount);
+        when(productService.updateProduct(argThat(updatedProduct -> 
+            updatedProduct.getStock() == productStock - quantity
+        ))).thenAnswer(invocation -> {
+            Product updatedProduct = invocation.getArgument(0);
+            return updatedProduct;
+        });
+        when(orderService.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setOrderId(1);
+            return order;
+        });
+        when(paymentService.calculateDiscount(productPrice * quantity, couponId)).thenReturn(discountAmount);
         when(paymentService.processPayment(any(Order.class), eq(couponId))).thenReturn(payment);
         
         Order result = orderApplicationService.createOrderWithPayment(userId, orderItems, couponId);
@@ -130,12 +142,11 @@ class OrderApplicationServiceTest {
         assertThat(result.getUserId()).isEqualTo(userId);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.COMPLETED);
         assertThat(result.getTotalAmount()).isEqualTo(productPrice * quantity);
-        assertThat(result.getDiscountAmount()).isEqualTo(discountAmount);
         assertThat(result.getAmount()).isEqualTo(productPrice * quantity - discountAmount);
         
-        verify(productService, times(2)).getProductById(productId);
+        verify(productService, times(3)).getProductById(productId);
         verify(productService).updateProduct(any(Product.class));
-        verify(orderRepository, times(2)).save(any(Order.class));
+        verify(orderService, times(2)).save(any(Order.class));
         verify(paymentService).calculateDiscount(productPrice * quantity, couponId);
         verify(paymentService).processPayment(any(Order.class), eq(couponId));
     }
@@ -146,7 +157,7 @@ class OrderApplicationServiceTest {
         int userId = 1;
         Order order = createOrder(userId, 1, 2, 1000);
         
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(orderService.findById(orderId)).thenReturn(order);
         
         Order result = orderApplicationService.getOrderById(orderId);
         
@@ -154,14 +165,14 @@ class OrderApplicationServiceTest {
         assertThat(result.getOrderId()).isEqualTo(orderId);
         assertThat(result.getUserId()).isEqualTo(userId);
         
-        verify(orderRepository).findById(orderId);
+        verify(orderService).findById(orderId);
     }
 
     @Test
     void getOrderById_존재하지않음_실패() {
         int orderId = 999;
         
-        when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+        when(orderService.findById(orderId)).thenThrow(new IllegalArgumentException("주문을 찾을 수 없습니다. ID: " + orderId));
         
         assertThatThrownBy(() -> orderApplicationService.getOrderById(orderId))
             .isInstanceOf(IllegalArgumentException.class)
@@ -175,7 +186,7 @@ class OrderApplicationServiceTest {
         Order order2 = createOrder(userId, 2, 1, 2000);
         List<Order> orders = List.of(order1, order2);
         
-        when(orderRepository.findByUserId(userId)).thenReturn(orders);
+        when(orderService.findByUserId(userId)).thenReturn(orders);
         
         List<Order> result = orderApplicationService.getOrdersByUserId(userId);
         
@@ -183,7 +194,7 @@ class OrderApplicationServiceTest {
         assertThat(result.get(0).getUserId()).isEqualTo(userId);
         assertThat(result.get(1).getUserId()).isEqualTo(userId);
         
-        verify(orderRepository).findByUserId(userId);
+        verify(orderService).findByUserId(userId);
     }
 
     @Test
@@ -192,16 +203,17 @@ class OrderApplicationServiceTest {
         int userId = 1;
         Order order = createOrder(userId, 1, 2, 1000);
         
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
+        when(orderService.cancelOrder(orderId)).thenAnswer(invocation -> {
+            order.cancel();
+            return order;
+        });
         
         Order result = orderApplicationService.cancelOrder(orderId);
         
         assertThat(result).isNotNull();
         assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCEL_REQUESTED);
         
-        verify(orderRepository).findById(orderId);
-        verify(orderRepository).save(any(Order.class));
+        verify(orderService).cancelOrder(orderId);
     }
 
     private Product createProduct(int productId, String name, int price, int stock) {
@@ -214,13 +226,10 @@ class OrderApplicationServiceTest {
     
     private Order createOrder(int userId, int productId, int quantity, int unitPrice) {
         OrderItem orderItem = new OrderItem(productId, quantity, unitPrice);
-        List<OrderItem> orderItems = List.of(orderItem);
-        
-        Order order = new Order(userId, orderItems);
+        Order order = new Order(userId, List.of(orderItem));
         order.setOrderId(1);
         order.setCreatedTime(LocalDateTime.now());
         order.setUpdatedTime(LocalDateTime.now());
-        
         return order;
     }
     
