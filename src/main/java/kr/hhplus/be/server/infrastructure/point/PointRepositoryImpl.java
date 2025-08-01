@@ -43,7 +43,7 @@ public class PointRepositoryImpl implements PointRepository {
 
     @Override
     public List<PointHistory> findHistoryByUserId(int userId) {
-        return pointHistoryJpaRepository.findByUserIdOrderByCreatedTimeDesc(userId)
+        return pointHistoryJpaRepository.findHistoryByUserId(userId)
             .stream()
             .map(PointHistoryEntity::toDomain)
             .collect(Collectors.toList());
