@@ -20,4 +20,11 @@ public class CouponPolicyRepositoryImpl implements CouponPolicyRepository {
         return couponPolicyJpaRepository.findById(policyId)
             .map(CouponPolicyEntity::toDomain);
     }
+
+    @Override
+    public CouponPolicy save(CouponPolicy couponPolicy) {
+        CouponPolicyEntity entity = CouponPolicyEntity.fromDomain(couponPolicy);
+        CouponPolicyEntity savedEntity = couponPolicyJpaRepository.save(entity);
+        return savedEntity.toDomain();
+    }
 } 

@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
 	java
 	id("org.springframework.boot") version "3.4.1"
@@ -56,4 +58,18 @@ dependencies {
 tasks.withType<Test> {
 	useJUnitPlatform()
 	systemProperty("user.timezone", "UTC")
+	
+	// 테스트 최적화
+	maxParallelForks = 1
+	forkEvery = 1
+	
+	// 상세 로깅
+	testLogging {
+		events("passed", "skipped", "failed")
+		showStandardStreams = true
+		exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+	}
+	
+	// 테스트 실행 시 타임아웃 설정
+	systemProperty("junit.jupiter.execution.timeout.default", "5m")
 }

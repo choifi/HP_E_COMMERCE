@@ -12,12 +12,7 @@ import java.util.Optional;
 @Repository
 public interface OrderJpaRepository extends JpaRepository<OrderEntity, Integer> {
     
-    // 주문 ID로 조회
-    @Override
-    @Query("SELECT o FROM OrderEntity o WHERE o.orderId = :orderId")
-    Optional<OrderEntity> findById(@Param("orderId") Integer orderId);
-    
     // 사용자 ID로 주문 목록 조회
     @Query("SELECT o FROM OrderEntity o WHERE o.userId = :userId ORDER BY o.createdTime DESC")
-    List<OrderEntity> findByUserIdOrderByCreatedTimeDesc(@Param("userId") int userId);
+    List<OrderEntity> findOrderListByUserId(int userId);
 } 

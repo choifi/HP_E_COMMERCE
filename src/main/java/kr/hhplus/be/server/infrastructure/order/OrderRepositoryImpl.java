@@ -32,7 +32,7 @@ public class OrderRepositoryImpl implements OrderRepository {
 
     @Override
     public List<Order> findByUserId(int userId) {
-        return orderJpaRepository.findByUserIdOrderByCreatedTimeDesc(userId)
+        return orderJpaRepository.findOrderListByUserId(userId)
             .stream()
             .map(OrderEntity::toDomain)
             .collect(Collectors.toList());

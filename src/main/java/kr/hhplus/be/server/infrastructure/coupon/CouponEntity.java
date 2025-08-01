@@ -41,6 +41,8 @@ public class CouponEntity {
     public kr.hhplus.be.server.domain.coupon.Coupon toDomain() {
         kr.hhplus.be.server.domain.coupon.Coupon coupon = new kr.hhplus.be.server.domain.coupon.Coupon(userId, policyId);
         coupon.setCouponId(couponId);
+        coupon.setStatus(status);
+        coupon.setCreatedTime(createdTime);
         return coupon;
     }
     
