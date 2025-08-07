@@ -28,5 +28,7 @@ public class Coupon {
     public int getUserId() { return userId; }
     public int getPolicyId() { return policyId; }
     public CouponStatus getStatus() { return status; }
+    public void setStatus(CouponStatus status) { this.status = status; }
     public LocalDateTime getCreatedTime() { return createdTime; }
+    public void setCreatedTime(LocalDateTime createdTime) { this.createdTime = createdTime; }
 } 

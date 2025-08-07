@@ -10,7 +10,7 @@ import java.util.List;
 @Repository
 public interface PointHistoryJpaRepository extends JpaRepository<PointHistoryEntity, Integer> {
     
-    // 사용자 ID로 포인트 내역 조회
+    // 사용자 ID로 포인트 내역 조회 
     @Query("SELECT ph FROM PointHistoryEntity ph WHERE ph.userId = :userId ORDER BY ph.createdTime DESC")
-    List<PointHistoryEntity> findByUserIdOrderByCreatedTimeDesc(@Param("userId") int userId);
+    List<PointHistoryEntity> findHistoryByUserId(@Param("userId") int userId);
 } 

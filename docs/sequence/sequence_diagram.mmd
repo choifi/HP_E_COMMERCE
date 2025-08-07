@@ -1,9 +1,9 @@
 %% [ Sequence Diagram ]
 
-%% 주문 처리 with OrderApplicationService
+%% 주문 처리 with OrderFacade
 sequenceDiagram
     participant OrderController
-    participant OrderApplicationService
+    participant OrderFacade
     participant ProductService
     participant PaymentService
     participant PointService
@@ -11,46 +11,46 @@ sequenceDiagram
     participant PaymentRepository
 
     %% 주문 요청
-    OrderController->>OrderApplicationService: 주문 생성 요청
+    OrderController->>OrderFacade: 주문 생성 요청
 
     %% 주문 아이템 검증 및 생성
-    OrderApplicationService->>ProductService: 상품 정보 조회
-    ProductService-->>OrderApplicationService: 상품 정보 반환
-    Note over OrderApplicationService: 재고 확인 및 주문 아이템 생성
+    OrderFacade->>ProductService: 상품 정보 조회
+    ProductService-->>OrderFacade: 상품 정보 반환
+    Note over OrderFacade: 재고 확인 및 주문 아이템 생성
 
     %% 쿠폰 할인 적용 (쿠폰이 있는 경우)
     alt 쿠폰 사용
-        OrderApplicationService->>PaymentService: 할인 금액 계산
-        PaymentService-->>OrderApplicationService: 할인 금액 반환
-        Note over OrderApplicationService: 할인 적용
+        OrderFacade->>PaymentService: 할인 금액 계산
+        PaymentService-->>OrderFacade: 할인 금액 반환
+        Note over OrderFacade: 할인 적용
     end
 
     %% 재고 차감
-    OrderApplicationService->>ProductService: 재고 차감
-    ProductService-->>OrderApplicationService: 재고 차감 완료
+    OrderFacade->>ProductService: 재고 차감
+    ProductService-->>OrderFacade: 재고 차감 완료
 
     %% 사용자 포인트 차감
-    OrderApplicationService->>PaymentService: 포인트 차감 요청
+    OrderFacade->>PaymentService: 포인트 차감 요청
     PaymentService->>PointService: 포인트 사용
     PointService-->>PaymentService: 포인트 차감 완료
-    PaymentService-->>OrderApplicationService: 포인트 차감 완료
+    PaymentService-->>OrderFacade: 포인트 차감 완료
 
     %% 주문 저장
-    OrderApplicationService->>OrderRepository: 주문 저장
-    OrderRepository-->>OrderApplicationService: 저장된 주문 반환
+    OrderFacade->>OrderRepository: 주문 저장
+    OrderRepository-->>OrderFacade: 저장된 주문 반환
 
     %% 결제 처리
-    OrderApplicationService->>PaymentService: 결제 처리
+    OrderFacade->>PaymentService: 결제 처리
     PaymentService->>PaymentRepository: 결제 정보 저장
     PaymentRepository-->>PaymentService: 결제 정보 저장 완료
-    PaymentService-->>OrderApplicationService: 결제 완료
+    PaymentService-->>OrderFacade: 결제 완료
 
     %% 주문 완료 처리
-    OrderApplicationService->>OrderRepository: 주문 상태 업데이트
-    OrderRepository-->>OrderApplicationService: 완료된 주문 반환
+    OrderFacade->>OrderRepository: 주문 상태 업데이트
+    OrderRepository-->>OrderFacade: 완료된 주문 반환
 
     %% 최종 응답
-    OrderApplicationService-->>OrderController: 주문 완료 응답
+    OrderFacade-->>OrderController: 주문 완료 응답
 
 
 %% 쿠폰 발급
