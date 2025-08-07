@@ -10,6 +10,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -163,5 +166,48 @@ public class ProductIntegrationTest {
         assertThat(updatedProduct.getStock()).isEqualTo(25);
         assertThat(updatedProduct.getName()).isEqualTo("테스트상품");
         assertThat(updatedProduct.getPrice()).isEqualTo(10000);
+    }
+
+    @Test
+    void 재고_정확성_동시성_테스트() throws InterruptedException {
+        // given - 재고 10개
+        final Product product = new Product("재고테스트", 1000, 10);
+        final Product savedProduct = productService.updateProduct(product);
+
+        // when - 10명이 동시에 1개씩 구매
+        int count = 10;
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch endLatch = new CountDownLatch(count);
+
+        ExecutorService executor = Executors.newFixedThreadPool(count);
+
+        for (int i = 0; i < count; i++) {
+            final int userId = i + 1;
+            executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    // 재고 차감 시도
+                    Product currentProduct = productService.getProductById(savedProduct.getProductId());
+                    currentProduct.reduceStock(1);
+                    productService.updateProduct(currentProduct);
+                } catch (Exception e) {
+                    System.out.println("사용자 " + userId + " 구매 실패: " + e.getMessage());
+                } finally {
+                    endLatch.countDown();
+                }
+            });
+        }
+        
+        startLatch.countDown();
+        endLatch.await();
+        executor.shutdown();
+
+        // then - 정확히 0개가 남아야 함
+        Product finalProduct = productService.getProductById(savedProduct.getProductId());
+        
+        System.out.println("초기 재고: " + savedProduct.getStock());
+        System.out.println("최종 재고: " + finalProduct.getStock());
+        
+        assertThat(finalProduct.getStock()).isEqualTo(0);
     }
 } 
