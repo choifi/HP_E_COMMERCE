@@ -15,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -206,6 +209,47 @@ public class CouponIntegrationTest {
 
         // then
         assertThat(discountAmount).isEqualTo(10000);
+    }
+
+    @Test
+    void 선착순_쿠폰_동시성_테스트() throws InterruptedException {
+        // given - 5개만 발급 가능
+        final CouponPolicy policy = new CouponPolicy("테스트", 10, 30, 5, 
+            LocalDateTime.now(), LocalDateTime.now().plusDays(7));
+        final CouponPolicy savedPolicy = couponPolicyRepository.save(policy);
+
+        // when - 10명이 동시에 신청
+        int count = 10;
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch endLatch = new CountDownLatch(count);
+
+        ExecutorService executor = Executors.newFixedThreadPool(count);
+
+        for (int i = 0; i < count; i++) {
+            final int userId = i + 1;
+            executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    couponService.issueCoupon(userId, savedPolicy.getPolicyId());
+                } catch (Exception e) {
+                    // 예외 무시
+                } finally {
+                    endLatch.countDown();
+                }
+            });
+        }
+        
+        startLatch.countDown();
+        endLatch.await();
+        executor.shutdown();
+
+        // then - 5개 초과 발급됨 (동시성 문제)
+        List<Coupon> issuedCoupons = couponRepository.findByPolicyId(savedPolicy.getPolicyId());
+        
+        System.out.println("발급되어야 할 쿠폰 수: " + savedPolicy.getMaxCount());
+        System.out.println("실제 발급된 쿠폰: " + issuedCoupons.size());
+        
+        assertThat(issuedCoupons.size()).isEqualTo(5);
     }
 
 } 
