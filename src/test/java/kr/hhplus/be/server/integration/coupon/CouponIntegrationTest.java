@@ -243,7 +243,7 @@ public class CouponIntegrationTest {
         endLatch.await();
         executor.shutdown();
 
-        // then - 5개 초과 발급됨 (동시성 문제)
+        // then - 비관적 락으로 정확히 5개만 발급됨
         List<Coupon> issuedCoupons = couponRepository.findByPolicyId(savedPolicy.getPolicyId());
         
         System.out.println("발급되어야 할 쿠폰 수: " + savedPolicy.getMaxCount());

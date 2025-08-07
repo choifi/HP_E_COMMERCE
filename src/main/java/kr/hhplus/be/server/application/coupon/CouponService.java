@@ -24,19 +24,19 @@ public class CouponService {
 
     @Transactional
     public Coupon issueCoupon(int userId, int policyId) {
-        // 쿠폰 정책 조회
-        CouponPolicy policy = couponPolicyRepository.findById(policyId)
+        // 쿠폰 정책 조회 (비관적 락 적용)
+        CouponPolicy policy = couponPolicyRepository.findByIdWithLock(policyId)
             .orElseThrow(() -> new IllegalArgumentException("쿠폰 정책을 찾을 수 없습니다."));
-        
+
         // 재고 확인
         if (policy.getIssuedCount() >= policy.getMaxCount()) {
             throw new IllegalStateException("쿠폰이 소진되었습니다.");
         }
-        
+
         // 발급 카운트 증가
         policy.setIssuedCount(policy.getIssuedCount() + 1);
         couponPolicyRepository.save(policy);
-        
+
         // 쿠폰 생성
         Coupon coupon = new Coupon(userId, policyId);
         return couponRepository.save(coupon);
