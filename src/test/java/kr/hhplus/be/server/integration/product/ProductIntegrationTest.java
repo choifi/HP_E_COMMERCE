@@ -16,7 +16,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@Transactional
 public class ProductIntegrationTest {
 
     @Autowired
@@ -25,6 +24,7 @@ public class ProductIntegrationTest {
     private Product testProduct;
 
     @BeforeEach
+    @Transactional
     void setUp() {
         // 테스트용 상품 생성
         testProduct = new Product("테스트상품", 10000, 10);
@@ -32,6 +32,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_생성_성공() {
         // given
         Product product = new Product("새상품", 15000, 20);
@@ -47,6 +48,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_조회_성공() {
         // when
         Product foundProduct = productService.getProductById(testProduct.getProductId());
@@ -59,6 +61,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_조회_실패_존재하지_않는_상품() {
         // when & then
         assertThatThrownBy(() -> productService.getProductById(999))
@@ -67,6 +70,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 모든_상품_조회_성공() {
         // given
         Product product1 = new Product("상품1", 5000, 5);
@@ -85,6 +89,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_관리_성공() {
         // when - 재고 차감
         testProduct.reduceStock(3);
@@ -95,6 +100,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_부족_예외() {
         // when & then
         assertThatThrownBy(() -> testProduct.reduceStock(15))
@@ -103,6 +109,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_충분_확인() {
         // when & then
         assertThat(testProduct.hasStock(5)).isTrue();
@@ -111,6 +118,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_음수_차감_예외() {
         // when & then
         assertThatThrownBy(() -> testProduct.reduceStock(-1))
@@ -119,6 +127,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_0개_차감_예외() {
         // when & then
         assertThatThrownBy(() -> testProduct.reduceStock(0))
@@ -127,6 +136,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_가격_업데이트_성공() {
         // given
         testProduct.setPrice(12000);
@@ -141,6 +151,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_업데이트_성공() {
         // given
         testProduct.setStock(25);
