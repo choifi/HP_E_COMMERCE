@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.coupon.Coupon;
 import kr.hhplus.be.server.domain.coupon.CouponPolicy;
 import kr.hhplus.be.server.domain.coupon.CouponStatus;
 import kr.hhplus.be.server.domain.coupon.CouponPolicyRepository;
+import kr.hhplus.be.server.domain.coupon.CouponRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,11 +29,15 @@ public class CouponIntegrationTest {
 
     @Autowired
     private CouponPolicyRepository couponPolicyRepository;
+    
+    @Autowired
+    private CouponRepository couponRepository;
 
     private CouponPolicy testPolicy;
     private Coupon testCoupon;
 
     @BeforeEach
+    @Transactional
     void setUp() {
         // 테스트용 쿠폰 정책 생성
         testPolicy = new CouponPolicy(
@@ -50,6 +55,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_정책_생성_성공() {
         // given
         CouponPolicy policy = new CouponPolicy(
@@ -73,6 +79,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_정책_조회_성공() {
         // when
         CouponPolicy foundPolicy = couponPolicyRepository.findById(testPolicy.getPolicyId()).orElse(null);
@@ -86,6 +93,7 @@ public class CouponIntegrationTest {
 
 
     @Test
+    @Transactional
     void 쿠폰_발급_성공() {
         // given
         CouponPolicy policy = new CouponPolicy(
@@ -109,6 +117,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_조회_성공() {
         // when
         Coupon foundCoupon = couponService.getCouponById(testCoupon.getCouponId());
@@ -121,6 +130,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_조회_실패_존재하지_않는_쿠폰() {
         // when & then
         assertThatThrownBy(() -> couponService.getCouponById(999))
@@ -129,6 +139,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 사용자_쿠폰_목록_조회_성공() {
         // given
         CouponPolicy policy2 = new CouponPolicy(
@@ -153,6 +164,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_사용_성공() {
         // when
         couponService.useCoupon(testCoupon.getCouponId());
@@ -163,6 +175,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_사용_실패_존재하지_않는_쿠폰() {
         // when & then
         assertThatThrownBy(() -> couponService.useCoupon(999))
@@ -171,6 +184,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_사용_실패_이미_사용된_쿠폰() {
         // given
         couponService.useCoupon(testCoupon.getCouponId());
@@ -182,6 +196,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_할인_계산_성공() {
         // given
         int totalAmount = 50000;
