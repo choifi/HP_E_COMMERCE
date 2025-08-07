@@ -6,6 +6,7 @@ public class Point {
     private int pointId;
     private int userId;
     private int currentPoint;
+    private int version; // 낙관적 락을 위한 버전 필드
     private LocalDateTime createdTime;
     private LocalDateTime updatedTime;
 
@@ -15,6 +16,7 @@ public class Point {
         validatePoint(userId, currentPoint);
         this.userId = userId;
         this.currentPoint = currentPoint;
+        this.version = 0;
         this.createdTime = LocalDateTime.now();
         this.updatedTime = LocalDateTime.now();
     }
@@ -72,6 +74,10 @@ public class Point {
     public int getPointId() { return pointId; }
     public int getUserId() { return userId; }
     public int getCurrentPoint() { return currentPoint; }
+    
+    public int getVersion() { return version; }
+    public void setVersion(int version) { this.version = version; }
+    
     public LocalDateTime getCreatedTime() { return createdTime; }
     public LocalDateTime getUpdatedTime() { return updatedTime; }
 } 
