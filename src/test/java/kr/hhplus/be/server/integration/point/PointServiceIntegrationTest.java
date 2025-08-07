@@ -10,14 +10,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,6 +37,9 @@ public class PointServiceIntegrationTest {
     
     @Autowired
     private PointHistoryJpaRepository pointHistoryJpaRepository;
+    
+    @Autowired
+    private EntityManager entityManager;
 
     @Test
     @Transactional
@@ -153,40 +159,50 @@ public class PointServiceIntegrationTest {
         final int userId = 1;
         final int chargeAmount = 1000;
         final int useAmount = 100;
+        final int threadCount = 10;
 
         pointService.chargePoint(userId, chargeAmount);
 
-        // when - 10명이 동시에 100원씩 사용
-        int count = 10;
-        CountDownLatch startLatch = new CountDownLatch(1);
-        CountDownLatch endLatch = new CountDownLatch(count);
+        // when - 10개 스레드가 동시에 포인트 사용
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch countDownLatch = new CountDownLatch(threadCount);
 
-        ExecutorService executor = Executors.newFixedThreadPool(count);
+        AtomicInteger successCount = new AtomicInteger();
+        AtomicInteger failureCount = new AtomicInteger();
 
-        for (int i = 0; i < count; i++) {
-            final int id = i + 1;
-            executor.submit(() -> {
+        long startTime = System.currentTimeMillis();
+        
+        for (int i = 0; i < threadCount; i++) {
+            executorService.execute(() -> {
                 try {
-                    startLatch.await();
                     pointService.usePoint(userId, useAmount);
+                    successCount.incrementAndGet();
+                    System.out.println("포인트 사용 성공");
+                } catch (ObjectOptimisticLockingFailureException e) {
+                    failureCount.incrementAndGet();
+                    System.out.println("낙관적 락 충돌 발생: " + e.getMessage());
                 } catch (Exception e) {
-                    System.out.println( id + " 포인트 사용 실패: " + e.getMessage());
+                    failureCount.incrementAndGet();
+                    System.out.println("기타 예외 발생: " + e.getMessage());
                 } finally {
-                    endLatch.countDown();
+                    countDownLatch.countDown();
                 }
             });
         }
 
-        startLatch.countDown();
-        endLatch.await();
-        executor.shutdown();
+        countDownLatch.await();
+        long endTime = System.currentTimeMillis();
 
-        // then - 정확히 0원이 남아야 한다
-        Point finalPoint = pointService.getPointByUserId(userId);
-
-        System.out.println("초기 포인트: " + chargeAmount);
-        System.out.println("최종 포인트: " + finalPoint.getCurrentPoint());
-
-        assertThat(finalPoint.getCurrentPoint()).isEqualTo(0);
+        // then
+        var result = pointJpaRepository.findByUserId(userId);
+        assertThat(result).isPresent();
+        
+        System.out.println("실행 시간: " + (endTime - startTime) + "ms");
+        System.out.println("성공 횟수: " + successCount.get());
+        System.out.println("실패 횟수: " + failureCount.get());
+        System.out.println("최종 포인트: " + result.get().getCurrentPoint());
+        
+        // 낙관적 락 - 일부만 성공 (전체 포인트 - 성공 포인트)
+        assertThat(result.get().getCurrentPoint()).isEqualTo(1000 - (useAmount * successCount.get()));
     }
 }
