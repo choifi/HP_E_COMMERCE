@@ -186,10 +186,8 @@ public class ProductIntegrationTest {
             executor.submit(() -> {
                 try {
                     startLatch.await();
-                    // 재고 차감 시도
-                    Product currentProduct = productService.getProductById(savedProduct.getProductId());
-                    currentProduct.reduceStock(1);
-                    productService.updateProduct(currentProduct);
+                    // 재고 차감 시도 (비관적 락 적용)
+                    productService.reduceStockWithLock(savedProduct.getProductId(), 1);
                 } catch (Exception e) {
                     System.out.println("사용자 " + userId + " 구매 실패: " + e.getMessage());
                 } finally {
@@ -202,7 +200,7 @@ public class ProductIntegrationTest {
         endLatch.await();
         executor.shutdown();
 
-        // then - 정확히 0개가 남아야 함
+        // then - 비관적 락으로 정확히 0개가 남음
         Product finalProduct = productService.getProductById(savedProduct.getProductId());
         
         System.out.println("초기 재고: " + savedProduct.getStock());
