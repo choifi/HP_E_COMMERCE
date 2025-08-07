@@ -37,4 +37,12 @@ public class CouponRepositoryImpl implements CouponRepository {
             .map(CouponEntity::toDomain)
             .collect(Collectors.toList());
     }
+
+    @Override
+    public List<Coupon> findByPolicyId(int policyId) {
+        return couponJpaRepository.findByPolicyId(policyId)
+            .stream()
+            .map(CouponEntity::toDomain)
+            .collect(Collectors.toList());
+    }
 } 

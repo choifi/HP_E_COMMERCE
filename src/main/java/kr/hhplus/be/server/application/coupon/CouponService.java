@@ -1,6 +1,8 @@
 package kr.hhplus.be.server.application.coupon;
 
 import kr.hhplus.be.server.domain.coupon.Coupon;
+import kr.hhplus.be.server.domain.coupon.CouponPolicy;
+import kr.hhplus.be.server.domain.coupon.CouponPolicyRepository;
 import kr.hhplus.be.server.domain.coupon.CouponRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,13 +14,30 @@ import java.util.List;
 public class CouponService {
 
     private final CouponRepository couponRepository;
+    private final CouponPolicyRepository couponPolicyRepository;
 
-    public CouponService(CouponRepository couponRepository) {
+    public CouponService(CouponRepository couponRepository, 
+                        CouponPolicyRepository couponPolicyRepository) {
         this.couponRepository = couponRepository;
+        this.couponPolicyRepository = couponPolicyRepository;
     }
 
     @Transactional
     public Coupon issueCoupon(int userId, int policyId) {
+        // 쿠폰 정책 조회
+        CouponPolicy policy = couponPolicyRepository.findById(policyId)
+            .orElseThrow(() -> new IllegalArgumentException("쿠폰 정책을 찾을 수 없습니다."));
+        
+        // 재고 확인
+        if (policy.getIssuedCount() >= policy.getMaxCount()) {
+            throw new IllegalStateException("쿠폰이 소진되었습니다.");
+        }
+        
+        // 발급 카운트 증가
+        policy.setIssuedCount(policy.getIssuedCount() + 1);
+        couponPolicyRepository.save(policy);
+        
+        // 쿠폰 생성
         Coupon coupon = new Coupon(userId, policyId);
         return couponRepository.save(coupon);
     }
