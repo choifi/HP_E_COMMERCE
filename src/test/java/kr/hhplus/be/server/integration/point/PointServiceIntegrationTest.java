@@ -21,7 +21,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
-@Transactional
 public class PointServiceIntegrationTest {
 
     @Autowired
@@ -34,6 +33,7 @@ public class PointServiceIntegrationTest {
     private PointHistoryJpaRepository pointHistoryJpaRepository;
 
     @Test
+    @Transactional
     void 포인트_충전_성공() {
         // given
         int userId = 1;
@@ -59,6 +59,7 @@ public class PointServiceIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 포인트_충전_실패_최대한도_초과() {
         // given
         int userId = 1;
@@ -70,6 +71,7 @@ public class PointServiceIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 포인트_사용_성공() {
         // given
         int userId = 1;
@@ -91,6 +93,7 @@ public class PointServiceIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 포인트_사용_실패_잔액_부족() {
         // given
         int userId = 1;
@@ -107,6 +110,7 @@ public class PointServiceIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 포인트_내역_조회_성공() {
         // given
         int userId = 1;
@@ -125,6 +129,7 @@ public class PointServiceIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 포인트_조회_성공() {
         // given
         int userId = 1;
@@ -132,10 +137,10 @@ public class PointServiceIntegrationTest {
 
         // when
         pointService.chargePoint(userId, chargeAmount);
-        Point point = pointService.getPointByUserId(userId);
+        Point result = pointService.getPointByUserId(userId);
 
         // then
-        assertThat(point.getUserId()).isEqualTo(userId);
-        assertThat(point.getCurrentPoint()).isEqualTo(chargeAmount);
+        assertThat(result.getUserId()).isEqualTo(userId);
+        assertThat(result.getCurrentPoint()).isEqualTo(chargeAmount);
     }
 }
