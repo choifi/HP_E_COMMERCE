@@ -5,6 +5,7 @@ import kr.hhplus.be.server.domain.coupon.Coupon;
 import kr.hhplus.be.server.domain.coupon.CouponPolicy;
 import kr.hhplus.be.server.domain.coupon.CouponStatus;
 import kr.hhplus.be.server.domain.coupon.CouponPolicyRepository;
+import kr.hhplus.be.server.domain.coupon.CouponRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,13 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@Transactional
 public class CouponIntegrationTest {
 
     @Autowired
@@ -28,11 +31,15 @@ public class CouponIntegrationTest {
 
     @Autowired
     private CouponPolicyRepository couponPolicyRepository;
+    
+    @Autowired
+    private CouponRepository couponRepository;
 
     private CouponPolicy testPolicy;
     private Coupon testCoupon;
 
     @BeforeEach
+    @Transactional
     void setUp() {
         // 테스트용 쿠폰 정책 생성
         testPolicy = new CouponPolicy(
@@ -50,6 +57,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_정책_생성_성공() {
         // given
         CouponPolicy policy = new CouponPolicy(
@@ -73,6 +81,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_정책_조회_성공() {
         // when
         CouponPolicy foundPolicy = couponPolicyRepository.findById(testPolicy.getPolicyId()).orElse(null);
@@ -86,6 +95,7 @@ public class CouponIntegrationTest {
 
 
     @Test
+    @Transactional
     void 쿠폰_발급_성공() {
         // given
         CouponPolicy policy = new CouponPolicy(
@@ -109,6 +119,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_조회_성공() {
         // when
         Coupon foundCoupon = couponService.getCouponById(testCoupon.getCouponId());
@@ -121,6 +132,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_조회_실패_존재하지_않는_쿠폰() {
         // when & then
         assertThatThrownBy(() -> couponService.getCouponById(999))
@@ -129,6 +141,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 사용자_쿠폰_목록_조회_성공() {
         // given
         CouponPolicy policy2 = new CouponPolicy(
@@ -153,6 +166,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_사용_성공() {
         // when
         couponService.useCoupon(testCoupon.getCouponId());
@@ -163,6 +177,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_사용_실패_존재하지_않는_쿠폰() {
         // when & then
         assertThatThrownBy(() -> couponService.useCoupon(999))
@@ -171,6 +186,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_사용_실패_이미_사용된_쿠폰() {
         // given
         couponService.useCoupon(testCoupon.getCouponId());
@@ -182,6 +198,7 @@ public class CouponIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 쿠폰_할인_계산_성공() {
         // given
         int totalAmount = 50000;
@@ -192,6 +209,47 @@ public class CouponIntegrationTest {
 
         // then
         assertThat(discountAmount).isEqualTo(10000);
+    }
+
+    @Test
+    void 선착순_쿠폰_동시성_테스트() throws InterruptedException {
+        // given - 5개만 발급 가능
+        final CouponPolicy policy = new CouponPolicy("테스트", 10, 30, 5, 
+            LocalDateTime.now(), LocalDateTime.now().plusDays(7));
+        final CouponPolicy savedPolicy = couponPolicyRepository.save(policy);
+
+        // when - 10명이 동시에 신청
+        int count = 10;
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch endLatch = new CountDownLatch(count);
+
+        ExecutorService executor = Executors.newFixedThreadPool(count);
+
+        for (int i = 0; i < count; i++) {
+            final int userId = i + 1;
+            executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    couponService.issueCoupon(userId, savedPolicy.getPolicyId());
+                } catch (Exception e) {
+                    // 예외 무시
+                } finally {
+                    endLatch.countDown();
+                }
+            });
+        }
+        
+        startLatch.countDown();
+        endLatch.await();
+        executor.shutdown();
+
+        // then - 비관적 락으로 정확히 5개만 발급됨
+        List<Coupon> issuedCoupons = couponRepository.findByPolicyId(savedPolicy.getPolicyId());
+        
+        System.out.println("발급되어야 할 쿠폰 수: " + savedPolicy.getMaxCount());
+        System.out.println("실제 발급된 쿠폰: " + issuedCoupons.size());
+        
+        assertThat(issuedCoupons.size()).isEqualTo(5);
     }
 
 } 

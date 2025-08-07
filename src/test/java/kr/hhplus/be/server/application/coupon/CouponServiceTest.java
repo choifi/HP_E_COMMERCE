@@ -1,6 +1,8 @@
 package kr.hhplus.be.server.application.coupon;
 
 import kr.hhplus.be.server.domain.coupon.Coupon;
+import kr.hhplus.be.server.domain.coupon.CouponPolicy;
+import kr.hhplus.be.server.domain.coupon.CouponPolicyRepository;
 import kr.hhplus.be.server.domain.coupon.CouponRepository;
 import kr.hhplus.be.server.domain.coupon.CouponStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,12 +23,15 @@ class CouponServiceTest {
 
     @Mock
     private CouponRepository couponRepository;
+    
+    @Mock
+    private CouponPolicyRepository couponPolicyRepository;
 
     private CouponService couponService;
 
     @BeforeEach
     void setUp() {
-        couponService = new CouponService(couponRepository);
+        couponService = new CouponService(couponRepository, couponPolicyRepository);
     }
 
     @Test
@@ -35,7 +40,13 @@ class CouponServiceTest {
         int policyId = 1;
         Coupon coupon = new Coupon(userId, policyId);
         coupon.setCouponId(1);
+        
+        CouponPolicy policy = new CouponPolicy("테스트", 10, 30, 100, 
+            java.time.LocalDateTime.now(), java.time.LocalDateTime.now().plusDays(30));
+        policy.setIssuedCount(0);
 
+        when(couponPolicyRepository.findById(policyId)).thenReturn(Optional.of(policy));
+        when(couponPolicyRepository.save(any(CouponPolicy.class))).thenReturn(policy);
         when(couponRepository.save(any(Coupon.class))).thenReturn(coupon);
 
         Coupon result = couponService.issueCoupon(userId, policyId);

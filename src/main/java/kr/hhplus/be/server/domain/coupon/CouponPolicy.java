@@ -11,7 +11,6 @@ public class CouponPolicy {
     private int maxCount;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
-    private int version;
     private LocalDateTime createdTime;
     private LocalDateTime updatedTime;
 
@@ -26,7 +25,6 @@ public class CouponPolicy {
         this.startDate = startDate;
         this.endDate = endDate;
         this.issuedCount = 0;
-        this.version = 0;
         this.createdTime = LocalDateTime.now();
         this.updatedTime = LocalDateTime.now();
     }
@@ -41,8 +39,6 @@ public class CouponPolicy {
     public int getMaxCount() { return maxCount; }
     public LocalDateTime getStartDate() { return startDate; }
     public LocalDateTime getEndDate() { return endDate; }
-    public int getVersion() { return version; }
-    public void setVersion(int version) { this.version = version; }
     public LocalDateTime getCreatedTime() { return createdTime; }
     public void setCreatedTime(LocalDateTime createdTime) { this.createdTime = createdTime; }
     public LocalDateTime getUpdatedTime() { return updatedTime; }

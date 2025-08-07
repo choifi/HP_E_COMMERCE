@@ -18,7 +18,11 @@ public class PointEntity {
 
     @Column(name = "current_point", nullable = false)
     private int currentPoint;
-
+    
+    @Version
+    @Column(name = "version", nullable = false)
+    private int version;
+    
     @Column(name = "created_time", nullable = false)
     private LocalDateTime createdTime;
 
@@ -37,18 +41,22 @@ public class PointEntity {
     public int getCurrentPoint() { return currentPoint; }
     public void setCurrentPoint(int currentPoint) { this.currentPoint = currentPoint; }
     
+    public int getVersion() { return version; }
+    public void setVersion(int version) { this.version = version; }
+    
     public LocalDateTime getCreatedTime() { return createdTime; }
     public void setCreatedTime(LocalDateTime createdTime) { this.createdTime = createdTime; }
     
     public LocalDateTime getUpdatedTime() { return updatedTime; }
     public void setUpdatedTime(LocalDateTime updatedTime) { this.updatedTime = updatedTime; }
 
-    // 도메인 변환 메서드
+    // 도메인 객체로 변환
     public kr.hhplus.be.server.domain.point.Point toDomain() {
         kr.hhplus.be.server.domain.point.Point point = 
             new kr.hhplus.be.server.domain.point.Point(userId, currentPoint);
         
         point.setPointId(pointId);
+        point.setVersion(version);
         point.setCreatedTime(createdTime);
         point.setUpdatedTime(updatedTime);
         
@@ -61,6 +69,7 @@ public class PointEntity {
         entity.setPointId(point.getPointId());
         entity.setUserId(point.getUserId());
         entity.setCurrentPoint(point.getCurrentPoint());
+        entity.setVersion(point.getVersion());
         entity.setCreatedTime(point.getCreatedTime());
         entity.setUpdatedTime(point.getUpdatedTime());
         
