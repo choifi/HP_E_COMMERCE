@@ -33,10 +33,6 @@ public class CouponPolicyEntity {
     @Column(name = "end_date", nullable = false)
     private LocalDateTime endDate;
     
-    @Version
-    @Column(name = "version", nullable = false)
-    private int version;
-    
     @Column(name = "created_time", nullable = false)
     private LocalDateTime createdTime;
     
@@ -61,8 +57,6 @@ public class CouponPolicyEntity {
     public void setStartDate(LocalDateTime startDate) { this.startDate = startDate; }
     public LocalDateTime getEndDate() { return endDate; }
     public void setEndDate(LocalDateTime endDate) { this.endDate = endDate; }
-    public int getVersion() { return version; }
-    public void setVersion(int version) { this.version = version; }
     public LocalDateTime getCreatedTime() { return createdTime; }
     public void setCreatedTime(LocalDateTime createdTime) { this.createdTime = createdTime; }
     public LocalDateTime getUpdatedTime() { return updatedTime; }
@@ -74,7 +68,6 @@ public class CouponPolicyEntity {
         
         policy.setPolicyId(policyId);
         policy.setIssuedCount(issuedCount);
-        policy.setVersion(version);
         policy.setCreatedTime(createdTime);
         policy.setUpdatedTime(updatedTime);
         
@@ -91,7 +84,6 @@ public class CouponPolicyEntity {
         entity.setMaxCount(policy.getMaxCount());
         entity.setStartDate(policy.getStartDate());
         entity.setEndDate(policy.getEndDate());
-        entity.setVersion(policy.getVersion());
         entity.setCreatedTime(policy.getCreatedTime());
         entity.setUpdatedTime(policy.getUpdatedTime());
         

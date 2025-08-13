@@ -10,13 +10,15 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@Transactional
 public class ProductIntegrationTest {
 
     @Autowired
@@ -25,6 +27,7 @@ public class ProductIntegrationTest {
     private Product testProduct;
 
     @BeforeEach
+    @Transactional
     void setUp() {
         // 테스트용 상품 생성
         testProduct = new Product("테스트상품", 10000, 10);
@@ -32,6 +35,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_생성_성공() {
         // given
         Product product = new Product("새상품", 15000, 20);
@@ -47,6 +51,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_조회_성공() {
         // when
         Product foundProduct = productService.getProductById(testProduct.getProductId());
@@ -59,6 +64,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_조회_실패_존재하지_않는_상품() {
         // when & then
         assertThatThrownBy(() -> productService.getProductById(999))
@@ -67,6 +73,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 모든_상품_조회_성공() {
         // given
         Product product1 = new Product("상품1", 5000, 5);
@@ -85,6 +92,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_관리_성공() {
         // when - 재고 차감
         testProduct.reduceStock(3);
@@ -95,6 +103,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_부족_예외() {
         // when & then
         assertThatThrownBy(() -> testProduct.reduceStock(15))
@@ -103,6 +112,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_충분_확인() {
         // when & then
         assertThat(testProduct.hasStock(5)).isTrue();
@@ -111,6 +121,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_음수_차감_예외() {
         // when & then
         assertThatThrownBy(() -> testProduct.reduceStock(-1))
@@ -119,6 +130,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_0개_차감_예외() {
         // when & then
         assertThatThrownBy(() -> testProduct.reduceStock(0))
@@ -127,6 +139,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_가격_업데이트_성공() {
         // given
         testProduct.setPrice(12000);
@@ -141,6 +154,7 @@ public class ProductIntegrationTest {
     }
 
     @Test
+    @Transactional
     void 상품_재고_업데이트_성공() {
         // given
         testProduct.setStock(25);
@@ -152,5 +166,46 @@ public class ProductIntegrationTest {
         assertThat(updatedProduct.getStock()).isEqualTo(25);
         assertThat(updatedProduct.getName()).isEqualTo("테스트상품");
         assertThat(updatedProduct.getPrice()).isEqualTo(10000);
+    }
+
+    @Test
+    void 재고_정확성_동시성_테스트() throws InterruptedException {
+        // given - 재고 10개
+        final Product product = new Product("재고테스트", 1000, 10);
+        final Product savedProduct = productService.updateProduct(product);
+
+        // when - 10명이 동시에 1개씩 구매
+        int count = 10;
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch endLatch = new CountDownLatch(count);
+
+        ExecutorService executor = Executors.newFixedThreadPool(count);
+
+        for (int i = 0; i < count; i++) {
+            final int userId = i + 1;
+            executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    // 재고 차감 시도 (비관적 락 적용)
+                    productService.reduceStockWithLock(savedProduct.getProductId(), 1);
+                } catch (Exception e) {
+                    System.out.println("사용자 " + userId + " 구매 실패: " + e.getMessage());
+                } finally {
+                    endLatch.countDown();
+                }
+            });
+        }
+        
+        startLatch.countDown();
+        endLatch.await();
+        executor.shutdown();
+
+        // then - 비관적 락으로 정확히 0개가 남음
+        Product finalProduct = productService.getProductById(savedProduct.getProductId());
+        
+        System.out.println("초기 재고: " + savedProduct.getStock());
+        System.out.println("최종 재고: " + finalProduct.getStock());
+        
+        assertThat(finalProduct.getStock()).isEqualTo(0);
     }
 } 

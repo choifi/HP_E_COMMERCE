@@ -35,4 +35,14 @@ public class ProductService {
     public Product updateProduct(Product product) {
         return productRepository.save(product);
     }
+
+    // 상품 재고 차감 - 비관적 락 적용
+    @Transactional
+    public Product reduceStockWithLock(int productId, int quantity) {
+        Product product = productRepository.findByIdWithLock(productId)
+            .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. ID: " + productId));
+        
+        product.reduceStock(quantity);
+        return productRepository.save(product);
+    }
 }

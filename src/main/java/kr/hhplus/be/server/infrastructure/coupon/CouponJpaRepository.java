@@ -8,4 +8,5 @@ import java.util.List;
 @Repository
 public interface CouponJpaRepository extends JpaRepository<CouponEntity, Integer> {
     List<CouponEntity> findByUserId(int userId);
+    List<CouponEntity> findByPolicyId(int policyId);
 } 

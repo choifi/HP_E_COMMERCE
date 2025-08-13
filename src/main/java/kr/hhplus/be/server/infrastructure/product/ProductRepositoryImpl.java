@@ -32,6 +32,12 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public Optional<Product> findByIdWithLock(int productId) {
+        return productJpaRepository.findByIdWithLock(productId)
+            .map(ProductEntity::toDomain);
+    }
+
+    @Override
     public Product save(Product product) {
         ProductEntity entity = ProductEntity.fromDomain(product);
         ProductEntity savedEntity = productJpaRepository.save(entity);
