@@ -4,6 +4,8 @@ import kr.hhplus.be.server.domain.product.Product;
 import kr.hhplus.be.server.domain.product.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 import java.util.List;
 
@@ -23,7 +25,8 @@ public class ProductService {
         return productRepository.findAll();
     }
     
-    // 상품 조회
+    // 상품 조회 
+    @Cacheable(value = "product", key = "#productId")
     public Product getProductById(int productId) {
 
         return productRepository.findById(productId)
