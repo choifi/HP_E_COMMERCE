@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,14 +25,25 @@ public class ProductIntegrationTest {
     @Autowired
     private ProductService productService;
 
+    @Autowired
+    private OrderFacade orderFacade;
+
+    @Autowired
+    private PointService pointService;
+
     private Product testProduct;
 
     @BeforeEach
     @Transactional
     void setUp() {
         // 테스트용 상품 생성
-        testProduct = new Product("테스트상품", 10000, 10);
+        testProduct = new Product("테스트상품", 10000, 50); // 10 → 50
         testProduct = productService.updateProduct(testProduct);
+        
+        // 테스트용 포인트 정보 생성
+        for (int i = 1; i <= 5; i++) {
+            pointService.chargePoint(i, 100000);
+        }
     }
 
     @Test
@@ -207,5 +219,57 @@ public class ProductIntegrationTest {
         System.out.println("최종 재고: " + finalProduct.getStock());
         
         assertThat(finalProduct.getStock()).isEqualTo(0);
+    }
+
+    @Test
+    void 분산락_재고_차감_통합_테스트() throws InterruptedException {
+        // given
+        Product product = new Product("분산락테스트상품", 1000, 10);
+        Product savedProduct = productService.updateProduct(product);
+        
+        int threadCount = 5;
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch endLatch = new CountDownLatch(threadCount);
+        
+        // 성공한 주문 수
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failureCount = new AtomicInteger(0);
+        
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+
+        // when - 5명이 동시에 주문 (분산락 적용)
+        for (int i = 0; i < threadCount; i++) {
+            final int userId = i + 1;
+            executor.submit(() -> {
+                try {
+                    startLatch.await();
+
+                    List<OrderFacade.CreateOrderItemRequest> orderItems = 
+                        List.of(new OrderFacade.CreateOrderItemRequest(savedProduct.getProductId(), 1));
+                    
+                    orderFacade.createOrderWithPayment(userId, orderItems, null);
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                } finally {
+                    endLatch.countDown();
+                }
+            });
+        }
+        
+        startLatch.countDown();
+        endLatch.await();
+        executor.shutdown();
+
+        // then 
+        Product finalProduct = productService.getProductById(savedProduct.getProductId());
+        System.out.println("초기 재고: " + savedProduct.getStock());
+        System.out.println("최종 재고: " + finalProduct.getStock());
+        System.out.println("성공한 주문 수: " + successCount.get());
+        System.out.println("실패한 주문 수: " + failureCount.get());
+        
+        // 성공한 주문만큼 재고가 차감
+        int expectedStock = savedProduct.getStock() - successCount.get();
+        assertThat(finalProduct.getStock()).isEqualTo(expectedStock);
     }
 } 
