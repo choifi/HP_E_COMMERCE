@@ -44,6 +44,12 @@ springdoc:
     config-url: /api-docs/swagger-config
     url: /api-docs
 
+logging:
+  level:
+    kr.hhplus.be.server.common.lock: INFO
+    org.redisson: INFO
+    kr.hhplus.be.server.application.coupon: INFO
+
 ---
 spring.config.activate.on-profile: local, test
 
