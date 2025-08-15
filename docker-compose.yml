@@ -1,5 +1,10 @@
 version: '3'
 services:
+  redis:
+    image: redis:7.4.4-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
   mysql:
     image: mysql:8.0
     ports:
