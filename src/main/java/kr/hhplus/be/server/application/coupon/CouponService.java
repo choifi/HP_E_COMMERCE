@@ -1,13 +1,17 @@
 package kr.hhplus.be.server.application.coupon;
 
+import kr.hhplus.be.server.common.lock.DistributedLock;
 import kr.hhplus.be.server.domain.coupon.Coupon;
 import kr.hhplus.be.server.domain.coupon.CouponPolicy;
 import kr.hhplus.be.server.domain.coupon.CouponPolicyRepository;
 import kr.hhplus.be.server.domain.coupon.CouponRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Transactional(readOnly = true)
@@ -22,6 +26,19 @@ public class CouponService {
         this.couponPolicyRepository = couponPolicyRepository;
     }
 
+    // 쿠폰 정책 조회
+    @Cacheable(value = "coupon_policy", key = "#policyId")
+    public CouponPolicy getCouponPolicyById(int policyId) {
+        return couponPolicyRepository.findById(policyId)
+            .orElseThrow(() -> new IllegalArgumentException("쿠폰 정책을 찾을 수 없습니다."));
+    }
+
+    @DistributedLock(
+        key = "'coupon_policy:' + #policyId",
+        waitTime = 10,
+        leaseTime = 30,
+        timeUnit = TimeUnit.SECONDS
+    )
     @Transactional
     public Coupon issueCoupon(int userId, int policyId) {
         // 쿠폰 정책 조회 (비관적 락 적용)
