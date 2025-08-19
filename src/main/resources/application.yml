@@ -11,12 +11,25 @@ spring:
       connection-timeout: 10000
       max-lifetime: 60000
     driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      port: 6379
+      host: localhost
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+  cache:
+    type: redis
   jpa:
     open-in-view: false
     generate-ddl: false
     show-sql: false
     hibernate:
-      ddl-auto: create
+      ddl-auto: create-drop
     properties:
       hibernate.timezone.default_storage: NORMALIZE_UTC
       hibernate.jdbc.time_zone: UTC
@@ -31,6 +44,12 @@ springdoc:
     config-url: /api-docs/swagger-config
     url: /api-docs
 
+logging:
+  level:
+    kr.hhplus.be.server.common.lock: INFO
+    org.redisson: INFO
+    kr.hhplus.be.server.application.coupon: INFO
+
 ---
 spring.config.activate.on-profile: local, test
 
@@ -39,3 +58,15 @@ spring:
     url: jdbc:mysql://localhost:3307/hhplus?characterEncoding=UTF-8&serverTimezone=UTC
     username: application
     password: application
+  data:
+    redis:
+      host: ${spring.data.redis.host:localhost}
+      port: ${spring.data.redis.port:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+

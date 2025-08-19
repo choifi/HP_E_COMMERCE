@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -213,7 +214,7 @@ public class CouponIntegrationTest {
 
     @Test
     void 선착순_쿠폰_동시성_테스트() throws InterruptedException {
-        // given - 5개만 발급 가능
+        // given - 쿠폰 5개 발급 가능
         final CouponPolicy policy = new CouponPolicy("테스트", 10, 30, 5, 
             LocalDateTime.now(), LocalDateTime.now().plusDays(7));
         final CouponPolicy savedPolicy = couponPolicyRepository.save(policy);
@@ -223,6 +224,9 @@ public class CouponIntegrationTest {
         CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch endLatch = new CountDownLatch(count);
 
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failureCount = new AtomicInteger(0);
+
         ExecutorService executor = Executors.newFixedThreadPool(count);
 
         for (int i = 0; i < count; i++) {
@@ -230,9 +234,11 @@ public class CouponIntegrationTest {
             executor.submit(() -> {
                 try {
                     startLatch.await();
+
                     couponService.issueCoupon(userId, savedPolicy.getPolicyId());
+                    successCount.incrementAndGet();
                 } catch (Exception e) {
-                    // 예외 무시
+                    failureCount.incrementAndGet();
                 } finally {
                     endLatch.countDown();
                 }

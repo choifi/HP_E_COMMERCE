@@ -1,5 +1,6 @@
 package kr.hhplus.be.server.application.order;
 
+import kr.hhplus.be.server.common.lock.DistributedLock;
 import kr.hhplus.be.server.domain.order.Order;
 import kr.hhplus.be.server.domain.order.OrderItem;
 import kr.hhplus.be.server.domain.product.Product;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,10 +29,25 @@ public class OrderFacade {
         this.paymentService = paymentService;
     }
 
+ 
+    // 재고 차감에 분산락 적용
+    @DistributedLock(
+        key = "'product:' + #sortedProductIds",
+        waitTime = 5,
+        leaseTime = 20,
+        timeUnit = TimeUnit.SECONDS
+    )
     @Transactional
     public Order createOrderWithPayment(int userId, 
                                       List<CreateOrderItemRequest> orderItems, 
                                       Integer couponId) {
+        
+        String sortedProductIds = orderItems.stream()
+            .map(CreateOrderItemRequest::getProductId)
+            .sorted()
+            .map(String::valueOf)
+            .collect(Collectors.joining(","));
+        
         validateOrderItems(orderItems);
         List<OrderItem> items = createOrderItems(orderItems);
         
