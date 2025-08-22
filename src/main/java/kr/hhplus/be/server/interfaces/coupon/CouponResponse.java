@@ -7,6 +7,7 @@ public class CouponResponse {
     private int userId;
     private int policyId;
     private String status;
+    private String message;
 
     public CouponResponse() {}
 
@@ -15,6 +16,10 @@ public class CouponResponse {
         this.userId = userId;
         this.policyId = policyId;
         this.status = status;
+    }
+
+    public CouponResponse(String message) {
+        this.message = message;
     }
 
     public static CouponResponse from(Coupon coupon) {
@@ -30,4 +35,5 @@ public class CouponResponse {
     public int getUserId() { return userId; }
     public int getPolicyId() { return policyId; }
     public String getStatus() { return status; }
+    public String getMessage() { return message; }
 } 

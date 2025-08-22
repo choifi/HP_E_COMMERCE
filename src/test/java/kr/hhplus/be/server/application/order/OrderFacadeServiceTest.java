@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,12 +31,14 @@ class OrderFacadeServiceTest {
     private ProductService productService;
     @Mock
     private PaymentService paymentService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private OrderFacade orderApplicationService;
 
     @BeforeEach
     void setUp() {
-        orderApplicationService = new OrderFacade(orderService, productService, paymentService);
+        orderApplicationService = new OrderFacade(orderService, productService, paymentService, eventPublisher);
     }
 
     @Test

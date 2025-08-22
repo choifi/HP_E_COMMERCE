@@ -13,6 +13,9 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import kr.hhplus.be.server.domain.product.ProductRankingEvent;
+import org.springframework.context.ApplicationEventPublisher;
+
 @Service
 @Transactional(readOnly = true)
 public class OrderFacade {
@@ -20,13 +23,16 @@ public class OrderFacade {
     private final OrderService orderService;
     private final ProductService productService;
     private final PaymentService paymentService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderFacade(OrderService orderService,
                        ProductService productService,
-                       PaymentService paymentService) {
+                       PaymentService paymentService,
+                       ApplicationEventPublisher eventPublisher) {
         this.orderService = orderService;
         this.productService = productService;
         this.paymentService = paymentService;
+        this.eventPublisher = eventPublisher;
     }
 
  
@@ -67,7 +73,12 @@ public class OrderFacade {
         paymentService.processPayment(savedOrder, couponId);
         
         savedOrder.complete();
-        return orderService.save(savedOrder);
+        Order completedOrder = orderService.save(savedOrder);
+        
+        // 상품 랭킹 이벤트
+        publishProductRankingEvent(orderItems);
+        
+        return completedOrder;
     }
 
     public Order getOrderById(int orderId) {
@@ -116,6 +127,16 @@ public class OrderFacade {
             product.reduceStock(item.getQuantity());
             productService.updateProduct(product);
         }
+    }
+
+    // 상품 랭킹 이벤트 발행
+    private void publishProductRankingEvent(List<CreateOrderItemRequest> orderItems) {
+        List<ProductRankingEvent.ProductRankingData> rankingDataList = orderItems.stream()
+            .map(item -> new ProductRankingEvent.ProductRankingData(item.getProductId(), item.getQuantity()))
+            .collect(Collectors.toList());
+        
+        ProductRankingEvent event = new ProductRankingEvent(rankingDataList);
+        eventPublisher.publishEvent(event);
     }
 
     public static class CreateOrderItemRequest {

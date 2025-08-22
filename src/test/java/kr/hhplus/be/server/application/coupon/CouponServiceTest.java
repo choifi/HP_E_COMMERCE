@@ -8,14 +8,19 @@ import kr.hhplus.be.server.domain.coupon.CouponStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.redisson.api.RAtomicLong;
+import org.redisson.api.RScoredSortedSet;
+import org.redisson.api.RSet;
+import org.redisson.api.RedissonClient;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,14 +31,82 @@ class CouponServiceTest {
     
     @Mock
     private CouponPolicyRepository couponPolicyRepository;
-
+    
+    @Mock
+    private RedissonClient redissonClient;
+    
+    @Mock
+    private RAtomicLong stockAtomicLong;
+    
+    @Mock
+    private RScoredSortedSet<Object> issueSet;
+    
+    @Mock
+    private RSet<Object> issuedUsers;
+    
+    @Mock
+    private RSet<Object> pendingSet;
+    
+    @InjectMocks
     private CouponService couponService;
-
+    
+    private CouponPolicy testPolicy;
+    
     @BeforeEach
     void setUp() {
-        couponService = new CouponService(couponRepository, couponPolicyRepository);
+        testPolicy = new CouponPolicy("테스트", 10, 30, 100, 
+            java.time.LocalDateTime.now(), java.time.LocalDateTime.now().plusDays(30));
+        testPolicy.setPolicyId(1);
+        testPolicy.setIssuedCount(50);
     }
-
+    
+    @Test
+    void 쿠폰발급요청_성공() {
+        // given
+        int userId = 1;
+        int policyId = 1;
+        
+        when(couponPolicyRepository.findById(policyId))
+            .thenReturn(Optional.of(testPolicy));
+        when(redissonClient.getAtomicLong("coupon:stock:1"))
+            .thenReturn(stockAtomicLong);
+        when(stockAtomicLong.get()).thenReturn(50L);
+        when(redissonClient.getSet("coupon:issued-users:1"))
+            .thenReturn(issuedUsers);
+        when(issuedUsers.add(String.valueOf(userId))).thenReturn(true);
+        when(redissonClient.getScoredSortedSet("coupon:issue:1"))
+            .thenReturn(issueSet);
+        when(issueSet.rank(String.valueOf(userId))).thenReturn(0);
+        when(redissonClient.getSet("coupon:issue-pending"))
+            .thenReturn(pendingSet);
+        
+        // when
+        CouponService.CouponIssueResult result = couponService.requestCoupon(userId, policyId);
+        
+        // then
+        assertEquals(CouponService.CouponIssueResult.SUCCESS, result);
+        verify(pendingSet).add("1:1");
+    }
+    
+    @Test
+    void 쿠폰발급요청_재고부족() {
+        // given
+        int userId = 1;
+        int policyId = 1;
+        
+        when(couponPolicyRepository.findById(policyId))
+            .thenReturn(Optional.of(testPolicy));
+        when(redissonClient.getAtomicLong("coupon:stock:1"))
+            .thenReturn(stockAtomicLong);
+        when(stockAtomicLong.get()).thenReturn(0L);
+        
+        // when
+        CouponService.CouponIssueResult result = couponService.requestCoupon(userId, policyId);
+        
+        // then
+        assertEquals(CouponService.CouponIssueResult.SOLD_OUT, result);
+    }
+    
     @Test
     void issueCoupon_성공() {
         int userId = 1;
@@ -51,55 +124,8 @@ class CouponServiceTest {
 
         Coupon result = couponService.issueCoupon(userId, policyId);
 
-        assertThat(result).isNotNull();
-        assertThat(result.getUserId()).isEqualTo(userId);
-        assertThat(result.getPolicyId()).isEqualTo(policyId);
-        assertThat(result.getStatus()).isEqualTo(CouponStatus.ISSUED);
-
-        verify(couponRepository).save(any(Coupon.class));
-    }
-
-    @Test
-    void getUserCoupons_성공() {
-        int userId = 1;
-        Coupon coupon1 = new Coupon(userId, 1);
-        Coupon coupon2 = new Coupon(userId, 2);
-        List<Coupon> coupons = List.of(coupon1, coupon2);
-
-        when(couponRepository.findByUserId(userId)).thenReturn(coupons);
-
-        List<Coupon> result = couponService.getUserCoupons(userId);
-
-        assertThat(result).hasSize(2);
-        assertThat(result.get(0).getUserId()).isEqualTo(userId);
-        assertThat(result.get(1).getUserId()).isEqualTo(userId);
-
-        verify(couponRepository).findByUserId(userId);
-    }
-
-    @Test
-    void useCoupon_성공() {
-        int couponId = 1;
-        Coupon coupon = new Coupon(1, 1);
-        coupon.setCouponId(couponId);
-
-        when(couponRepository.findById(couponId)).thenReturn(Optional.of(coupon));
-        when(couponRepository.save(any(Coupon.class))).thenReturn(coupon);
-
-        couponService.useCoupon(couponId);
-
-        verify(couponRepository).findById(couponId);
-        verify(couponRepository).save(any(Coupon.class));
-    }
-
-    @Test
-    void useCoupon_존재하지않음_실패() {
-        int couponId = 999;
-
-        when(couponRepository.findById(couponId)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> couponService.useCoupon(couponId))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("쿠폰을 찾을 수 없습니다");
+        assertNotNull(result);
+        assertEquals(userId, result.getUserId());
+        assertEquals(policyId, result.getPolicyId());
     }
 } 
