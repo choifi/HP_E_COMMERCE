@@ -1,5 +1,7 @@
 package kr.hhplus.be.server.integration.product;
 
+import kr.hhplus.be.server.application.order.OrderFacade;
+import kr.hhplus.be.server.application.point.PointService;
 import kr.hhplus.be.server.application.product.ProductService;
 import kr.hhplus.be.server.domain.product.Product;
 import org.junit.jupiter.api.BeforeEach;
