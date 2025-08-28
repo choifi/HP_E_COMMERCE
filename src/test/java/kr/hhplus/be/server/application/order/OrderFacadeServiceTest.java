@@ -3,6 +3,7 @@ package kr.hhplus.be.server.application.order;
 import kr.hhplus.be.server.domain.order.Order;
 import kr.hhplus.be.server.domain.order.OrderItem;
 import kr.hhplus.be.server.domain.order.OrderStatus;
+import kr.hhplus.be.server.domain.order.OrderEventPublisher;
 import kr.hhplus.be.server.domain.payment.Payment;
 import kr.hhplus.be.server.domain.product.Product;
 import kr.hhplus.be.server.application.product.ProductService;
@@ -33,12 +34,14 @@ class OrderFacadeServiceTest {
     private PaymentService paymentService;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private OrderEventPublisher orderEventPublisher;
 
     private OrderFacade orderApplicationService;
 
     @BeforeEach
     void setUp() {
-        orderApplicationService = new OrderFacade(orderService, productService, paymentService, eventPublisher);
+        orderApplicationService = new OrderFacade(orderService, productService, paymentService, eventPublisher, orderEventPublisher);
     }
 
     @Test
