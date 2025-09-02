@@ -2,6 +2,8 @@ package kr.hhplus.be.server.application.order;
 
 import kr.hhplus.be.server.common.lock.DistributedLock;
 import kr.hhplus.be.server.domain.order.Order;
+import kr.hhplus.be.server.domain.order.OrderCompletedEvent;
+import kr.hhplus.be.server.domain.order.OrderEventPublisher;
 import kr.hhplus.be.server.domain.order.OrderItem;
 import kr.hhplus.be.server.domain.product.Product;
 import kr.hhplus.be.server.application.product.ProductService;
@@ -24,15 +26,18 @@ public class OrderFacade {
     private final ProductService productService;
     private final PaymentService paymentService;
     private final ApplicationEventPublisher eventPublisher;
+    private final OrderEventPublisher orderEventPublisher;
 
     public OrderFacade(OrderService orderService,
                        ProductService productService,
                        PaymentService paymentService,
-                       ApplicationEventPublisher eventPublisher) {
+                       ApplicationEventPublisher eventPublisher,
+                       OrderEventPublisher orderEventPublisher) {
         this.orderService = orderService;
         this.productService = productService;
         this.paymentService = paymentService;
         this.eventPublisher = eventPublisher;
+        this.orderEventPublisher = orderEventPublisher; 
     }
 
  
@@ -77,6 +82,9 @@ public class OrderFacade {
         
         // 상품 랭킹 이벤트
         publishProductRankingEvent(orderItems);
+
+        // 주문 완료 이벤트
+        orderEventPublisher.publish(new OrderCompletedEvent.Completed(completedOrder.getOrderId()));
         
         return completedOrder;
     }
