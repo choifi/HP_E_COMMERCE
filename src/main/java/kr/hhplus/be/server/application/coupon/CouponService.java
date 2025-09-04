@@ -22,6 +22,7 @@ public class CouponService {
     private final CouponRepository couponRepository;
     private final CouponPolicyRepository couponPolicyRepository;
     private final RedissonClient redissonClient;
+    private final CouponIssueEventPublisher couponIssueEventPublisher;
     
     // 키 구조
     private static final String COUPON_STOCK_KEY = "coupon:stock:{policyId}";
@@ -31,10 +32,12 @@ public class CouponService {
 
     public CouponService(CouponRepository couponRepository, 
                         CouponPolicyRepository couponPolicyRepository,
-                        RedissonClient redissonClient) {
+                        RedissonClient redissonClient,
+                        CouponIssueEventPublisher couponIssueEventPublisher) {
         this.couponRepository = couponRepository;
         this.couponPolicyRepository = couponPolicyRepository;
         this.redissonClient = redissonClient;
+        this.couponIssueEventPublisher = couponIssueEventPublisher;
     }
 
     // 쿠폰 정책 조회
@@ -48,44 +51,24 @@ public class CouponService {
         CouponPolicy policy = getCouponPolicyById(policyId);
         
         // 1. 재고 확인
-        String stockKey = COUPON_STOCK_KEY.replace("{policyId}", String.valueOf(policyId));
-        long availableStock = redissonClient.getAtomicLong(stockKey).get();
-        
-        if (availableStock <= 0) {
+        if (policy.getIssuedCount() >= policy.getMaxCount()) {
             return CouponIssueResult.SOLD_OUT;
         }
         
         // 2. 중복 발급 방지
-        String issuedUsersKey = COUPON_ISSUED_USERS_KEY.replace("{policyId}", String.valueOf(policyId));
-        RSet<String> issuedUsers = redissonClient.getSet(issuedUsersKey);
-        if (!issuedUsers.add(String.valueOf(userId))) {
+        List<Coupon> userCoupons = couponRepository.findByUserId(userId);
+        boolean alreadyIssued = userCoupons.stream()
+            .anyMatch(coupon -> coupon.getPolicyId() == policyId);
+        
+        if (alreadyIssued) {
             return CouponIssueResult.ALREADY_ISSUED;
         }
         
-        // 3. 선착순 순서 보장
-        String issueKey = COUPON_ISSUE_KEY.replace("{policyId}", String.valueOf(policyId));
-        RScoredSortedSet<String> issueSet = redissonClient.getScoredSortedSet(issueKey);
-        issueSet.add(System.currentTimeMillis(), String.valueOf(userId));
+        // 3. Kafka로 쿠폰 발급 요청 이벤트
+        long sequenceNumber = System.currentTimeMillis();
+        couponIssueEventPublisher.publishCouponIssueRequest(userId, policyId, sequenceNumber);
         
-        // 4. 순위 확인 및 재고 할당
-        int rank = issueSet.rank(String.valueOf(userId));
-        
-        if (rank < availableStock) {
-            // 발급 성공
-            RSet<String> pendingSet = redissonClient.getSet(COUPON_ISSUE_PENDING_KEY);
-            pendingSet.add(policyId + ":" + userId);
-            
-            // TTL
-            issuedUsers.expire(24, TimeUnit.HOURS);
-            issueSet.expire(24, TimeUnit.HOURS);
-            
-            return CouponIssueResult.SUCCESS;
-        } else {
-            // 재고 부족
-            issuedUsers.remove(String.valueOf(userId));
-            issueSet.remove(String.valueOf(userId));
-            return CouponIssueResult.SOLD_OUT;
-        }
+        return CouponIssueResult.SUCCESS;
     }
 
     @DistributedLock(
@@ -111,6 +94,25 @@ public class CouponService {
         // 쿠폰 생성
         Coupon coupon = new Coupon(userId, policyId);
         return couponRepository.save(coupon);
+    }
+
+    @Transactional
+    public void processCouponIssue(long userId, int policyId) {
+        // 쿠폰 정책 조회
+        CouponPolicy policy = getCouponPolicyById(policyId);
+        
+        // 재고 확인
+        if (policy.getIssuedCount() >= policy.getMaxCount()) {
+            throw new IllegalStateException("쿠폰이 소진되었습니다.");
+        }
+
+        // 발급 카운트 증가
+        policy.setIssuedCount(policy.getIssuedCount() + 1);
+        couponPolicyRepository.save(policy);
+
+        // 쿠폰 생성
+        Coupon coupon = new Coupon((int) userId, policyId);
+        couponRepository.save(coupon);
     }
 
     public List<Coupon> getUserCoupons(int userId) {
