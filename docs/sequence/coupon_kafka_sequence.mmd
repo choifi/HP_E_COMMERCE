@@ -1,0 +1,33 @@
+sequenceDiagram
+    participant User as 사용자
+    participant Controller as CouponController
+    participant Service as CouponService
+    participant DB as Database
+    participant Publisher as CouponIssueEventPublisher
+    participant Kafka as Kafka
+    participant Listener as CouponIssueEventListener
+
+    User->>Controller: 쿠폰 발급 요청
+    Controller->>Service: requestCoupon(userId, policyId)
+    
+    Service->>DB: 재고 확인 (CouponPolicy)
+    DB-->>Service: issuedCount, maxCount
+    
+    Service->>DB: 중복 발급 방지 (Coupon 조회)
+    DB-->>Service: 사용자 쿠폰 목록
+    
+    alt 재고 있음 && 중복 없음
+        Service->>Publisher: publishCouponIssueRequest()
+        Publisher->>Kafka: 이벤트 발행 (순서 보장)
+        Service-->>Controller: SUCCESS 응답
+        Controller-->>User: 발급 요청 완료
+        
+        Note over Kafka: 비동기 처리 (순서 보장)
+        Kafka->>Listener: 메시지 수신
+        Listener->>Service: processCouponIssue()
+        Service->>DB: 쿠폰 발급 처리
+        Service->>DB: 재고 차감
+    else 재고 없음 || 중복 있음
+        Service-->>Controller: SOLD_OUT/ALREADY_ISSUED 응답
+        Controller-->>User: 발급 실패
+    end
