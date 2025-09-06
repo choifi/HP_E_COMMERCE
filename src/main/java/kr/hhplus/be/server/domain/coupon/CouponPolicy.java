@@ -37,6 +37,7 @@ public class CouponPolicy {
     public int getIssuedCount() { return issuedCount; }
     public void setIssuedCount(int issuedCount) { this.issuedCount = issuedCount; }
     public int getMaxCount() { return maxCount; }
+    public void setMaxCount(int maxCount) { this.maxCount = maxCount; }
     public LocalDateTime getStartDate() { return startDate; }
     public LocalDateTime getEndDate() { return endDate; }
     public LocalDateTime getCreatedTime() { return createdTime; }
