@@ -47,6 +47,7 @@ public class CouponService {
             .orElseThrow(() -> new IllegalArgumentException("쿠폰 정책을 찾을 수 없습니다."));
     }
 
+    @Transactional
     public CouponIssueResult requestCoupon(int userId, int policyId) {
         CouponPolicy policy = getCouponPolicyById(policyId);
         
@@ -64,11 +65,21 @@ public class CouponService {
             return CouponIssueResult.ALREADY_ISSUED;
         }
         
-        // 3. Kafka로 쿠폰 발급 요청 이벤트
-        long sequenceNumber = System.currentTimeMillis();
-        couponIssueEventPublisher.publishCouponIssueRequest(userId, policyId, sequenceNumber);
-        
-        return CouponIssueResult.SUCCESS;
+        // 3. 직접 쿠폰 발급 (Kafka 대신)
+        try {
+            // 발급 카운트 증가
+            policy.setIssuedCount(policy.getIssuedCount() + 1);
+            couponPolicyRepository.save(policy);
+            
+            // 쿠폰 생성
+            Coupon coupon = new Coupon(userId, policyId);
+            couponRepository.save(coupon);
+            
+            return CouponIssueResult.SUCCESS;
+        } catch (Exception e) {
+            // 롤백을 위해 예외를 다시 던짐
+            throw new RuntimeException("쿠폰 발급 중 오류 발생", e);
+        }
     }
 
     @DistributedLock(
